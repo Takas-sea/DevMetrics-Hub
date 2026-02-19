@@ -7,12 +7,20 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/Takas-sea/DevMetrics-Hub/db"
 )
 
 func main() {
 	if os.Getenv("ENV") == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	conn, err := db.Init()
+	if err != nil {
+		log.Fatalf("DB init failed: %v\n", err)
+	}
+	defer conn.Close()
 
 	router := gin.Default()
 
