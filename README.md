@@ -4,7 +4,7 @@ A dashboard that analyzes GitHub activity and generates automated reports.
 ## Tech Stack
 
 - **Frontend**: Next.js 14, React 18, TypeScript
-- **Backend**: Go 1.21, Gin framework
+- **Backend**: Go 1.26.0, Gin framework
 - **Auth**: OAuth 2.0, JWT
 - **Database**: PostgreSQL 15
 - **Infrastructure**: AWS ECS, Docker, GitHub Actions
