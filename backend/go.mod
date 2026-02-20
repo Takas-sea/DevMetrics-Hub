@@ -2,7 +2,10 @@ module github.com/Takas-sea/DevMetrics-Hub
 
 go 1.26
 
-require github.com/gin-gonic/gin v1.9.1
+require (
+	github.com/gin-gonic/gin v1.9.1
+	github.com/lib/pq v1.11.2
+)
 
 require (
 	github.com/bytedance/sonic v1.9.1 // indirect
