@@ -1,4 +1,3 @@
-// filepath: d:\DevMetrics-Hub\backend\main.go
 package main
 
 import (
@@ -21,6 +20,10 @@ func main() {
 		log.Fatalf("DB init failed: %v\n", err)
 	}
 	defer conn.Close()
+
+	if err := db.Migrate(conn); err != nil {
+		log.Fatalf("DB migrate failed: %v\n", err)
+	}
 
 	router := gin.Default()
 
