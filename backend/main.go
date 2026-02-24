@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/Takas-sea/DevMetrics-Hub/db"
+	"github.com/Takas-sea/DevMetrics-Hub/handlers"
 )
 
 func main() {
@@ -25,6 +26,8 @@ func main() {
 		log.Fatalf("DB migrate failed: %v\n", err)
 	}
 
+	authHandler := &handlers.AuthHandler{DB: conn}
+
 	router := gin.Default()
 
 	router.GET("/health", healthCheck)
@@ -33,9 +36,9 @@ func main() {
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/login", login)
-			auth.POST("/logout", logout)
-			auth.GET("/callback", githubCallback)
+			auth.POST("/login", authHandler.Login)
+			auth.POST("/logout", authHandler.Logout)
+			auth.GET("/callback", authHandler.Callback)
 		}
 
 		users := api.Group("/users")
@@ -65,24 +68,6 @@ func healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
 		"message": "Server is running",
-	})
-}
-
-func login(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "login endpoint",
-	})
-}
-
-func logout(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "logout endpoint",
-	})
-}
-
-func githubCallback(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "github callback endpoint",
 	})
 }
 
