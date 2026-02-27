@@ -5,18 +5,19 @@ services:
     image: postgres:15-alpine
     container_name: devmetrics-postgres
     environment:
-      POSTGRES_USER: devmetrics_user
-      POSTGRES_PASSWORD: devmetrics_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: devmetrics_hub
     ports:
-      - "5432:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devmetrics_user"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devmetrics_hub"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build:
@@ -24,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: devmetrics-backend
     environment:
-      DATABASE_URL: postgres://devmetrics_user:devmetrics_password@postgres:5432/devmetrics_hub
+      DATABASE_URL: postgres://devmetrics_user:devmetrics_password@postgres:5432/devmetrics_hub?sslmode=disable
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       JWT_SECRET: ${JWT_SECRET}
@@ -35,23 +36,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: devmetrics-frontend
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080/api
-      NEXT_PUBLIC_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
 
 volumes:
   postgres_data:
