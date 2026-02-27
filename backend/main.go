@@ -29,6 +29,7 @@ func main() {
 	authHandler := &handlers.AuthHandler{DB: conn}
 
 	router := gin.Default()
+	_ = router.SetTrustedProxies([]string{"127.0.0.1"})
 
 	router.GET("/health", healthCheck)
 
