@@ -12,6 +12,13 @@ export default function CallbackPage() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        const oauthError = searchParams.get('error');
+        if (oauthError) {
+          setError('GitHub認証がキャンセルされました');
+          setLoading(false);
+          return;
+        }
+
         const code = searchParams.get('code');
         if (!code) {
           setError('認可コードがありません');
@@ -32,7 +39,7 @@ export default function CallbackPage() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        router.push('/dashboard');
+        router.replace('/');
       } catch (err) {
         setError(err instanceof Error ? err.message : '認証エラー');
         setLoading(false);
@@ -43,16 +50,26 @@ export default function CallbackPage() {
   }, [searchParams, router]);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">認証処理中...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex justify-center items-center px-6">
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-8 w-full max-w-md text-center">
+          <h1 className="text-2xl font-bold text-white mb-3">認証処理中...</h1>
+          <p className="text-slate-300">GitHubアカウントを確認しています</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-2xl font-bold mb-4 text-red-600">エラー</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <a href="/login" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex justify-center items-center px-6">
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-8 w-full max-w-md">
+          <h1 className="text-2xl font-bold mb-4 text-red-400">認証エラー</h1>
+          <p className="text-slate-300 mb-6">{error}</p>
+          <a
+            href="/login"
+            className="inline-flex items-center justify-center w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-3 rounded-lg font-semibold transition"
+          >
             ログインに戻る
           </a>
         </div>
