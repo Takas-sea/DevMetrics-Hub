@@ -39,7 +39,7 @@ export default function CallbackPage() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        router.replace('/');
+        router.replace('/dashboard');
       } catch (err) {
         setError(err instanceof Error ? err.message : '認証エラー');
         setLoading(false);
