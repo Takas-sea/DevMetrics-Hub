@@ -11,6 +11,22 @@ import (
 	"github.com/Takas-sea/DevMetrics-Hub/handlers"
 )
 
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func main() {
 	if os.Getenv("ENV") == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -30,6 +46,8 @@ func main() {
 
 	router := gin.Default()
 	_ = router.SetTrustedProxies([]string{"127.0.0.1"})
+
+	router.Use(corsMiddleware())
 
 	router.GET("/health", healthCheck)
 

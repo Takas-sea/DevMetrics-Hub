@@ -14,7 +14,28 @@ A dashboard that analyzes GitHub activity and generates automated reports.
 ```bash
 git clone https://github.com/Takas-sea/DevMetrics-Hub.git
 cd DevMetrics-Hub
+cp .env.example .env
+# .env に GitHub OAuth の値を設定
 docker-compose up -d
+```
+
+## GitHub OAuth Setup
+
+1. GitHub の Developer settings で OAuth App を作成
+2. Authorization callback URL を `http://localhost:3000/auth/callback` に設定
+3. ルートの `.env` に以下を設定
+
+```env
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+GITHUB_REDIRECT_URI=http://localhost:3000/auth/callback
+JWT_SECRET=your_jwt_secret
+```
+
+4. 変更後にバックエンドを再起動
+
+```bash
+docker-compose up -d --build backend
 ```
 
 ## Why
