@@ -61,6 +61,12 @@ export default function DashboardPage() {
     return null;
   }
 
+  const displayName = user.username?.trim() || 'GitHub User';
+  const displayEmail = user.email?.trim() || 'メール未設定';
+  const avatarUrl = user.avatar_url?.trim() || null;
+  const avatarAlt = `${displayName} のアバター`;
+  const initials = displayName.slice(0, 1).toUpperCase();
+
   const sampleActivities: Activity[] = [
     { date: '2024-03-04', count: 15 },
     { date: '2024-03-03', count: 8 },
@@ -93,16 +99,22 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="md:col-span-1 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-6">
             <div className="flex flex-col items-center">
-              <Image
-                src={user.avatar_url}
-                alt={user.username}
-                width={96}
-                height={96}
-                className="rounded-full mb-4 border-2 border-slate-600"
-              />
-              <h2 className="text-2xl font-bold text-white mb-2">{user.username}</h2>
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={avatarAlt}
+                  width={96}
+                  height={96}
+                  className="rounded-full mb-4 border-2 border-slate-600"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full mb-4 border-2 border-slate-600 bg-slate-700 flex items-center justify-center text-white text-2xl font-bold">
+                  {initials}
+                </div>
+              )}
+              <h2 className="text-2xl font-bold text-white mb-2">{displayName}</h2>
               <p className="text-slate-400 text-sm mb-4 text-center">{user.bio || 'プロフィール情報なし'}</p>
-              <p className="text-slate-400 text-xs">{user.email}</p>
+              <p className="text-slate-400 text-xs">{displayEmail}</p>
             </div>
           </div>
 
