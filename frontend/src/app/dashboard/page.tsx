@@ -17,9 +17,39 @@ interface Activity {
   count: number;
 }
 
+interface RepoActivity {
+  name: string;
+  commits: number;
+}
+
+interface ActivityApiResponse {
+  daily: Activity[];
+  summary: {
+    total_contributions: number;
+    average_daily: number;
+  };
+  recent_repositories: RepoActivity[];
+}
+
+const fallbackActivities: Activity[] = [
+  { date: '2024-03-04', count: 15 },
+  { date: '2024-03-03', count: 8 },
+  { date: '2024-03-02', count: 12 },
+  { date: '2024-03-01', count: 6 },
+  { date: '2024-02-28', count: 20 },
+];
+
+const fallbackRepositories: RepoActivity[] = [
+  { name: 'Repository 1', commits: 15 },
+  { name: 'Repository 2', commits: 8 },
+  { name: 'Repository 3', commits: 12 },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [activities, setActivities] = useState<Activity[]>(fallbackActivities);
+  const [repositories, setRepositories] = useState<RepoActivity[]>(fallbackRepositories);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,8 +62,39 @@ export default function DashboardPage() {
     }
 
     try {
-      const userData = JSON.parse(userStr);
-      setUser(userData);
+      const rawUser = JSON.parse(userStr);
+      const normalizedUser: User = {
+        id: rawUser.id ?? rawUser.ID ?? '',
+        username: rawUser.username ?? rawUser.Username ?? '',
+        email: rawUser.email ?? rawUser.Email ?? '',
+        avatar_url: rawUser.avatar_url ?? rawUser.AvatarURL ?? '',
+        bio: rawUser.bio ?? rawUser.Bio ?? '',
+      };
+      setUser(normalizedUser);
+
+      fetch('http://localhost:8080/api/activities/me?days=5', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('failed to fetch activities');
+          }
+          return response.json() as Promise<ActivityApiResponse>;
+        })
+        .then((data) => {
+          if (Array.isArray(data.daily) && data.daily.length > 0) {
+            setActivities(data.daily);
+          }
+          if (Array.isArray(data.recent_repositories) && data.recent_repositories.length > 0) {
+            setRepositories(data.recent_repositories);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch activities:', error);
+        });
     } catch {
       router.replace('/login');
     } finally {
@@ -67,16 +128,8 @@ export default function DashboardPage() {
   const avatarAlt = `${displayName} のアバター`;
   const initials = displayName.slice(0, 1).toUpperCase();
 
-  const sampleActivities: Activity[] = [
-    { date: '2024-03-04', count: 15 },
-    { date: '2024-03-03', count: 8 },
-    { date: '2024-03-02', count: 12 },
-    { date: '2024-03-01', count: 6 },
-    { date: '2024-02-28', count: 20 },
-  ];
-
-  const totalContributions = sampleActivities.reduce((sum, a) => sum + a.count, 0);
-  const maxActivity = Math.max(...sampleActivities.map(a => a.count));
+  const totalContributions = activities.reduce((sum, a) => sum + a.count, 0);
+  const maxActivity = Math.max(...activities.map((a) => a.count), 1);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -127,7 +180,7 @@ export default function DashboardPage() {
             <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-6">
               <p className="text-slate-400 text-sm mb-2">過去5日の平均</p>
               <p className="text-4xl font-bold text-purple-400">
-                {Math.round(totalContributions / sampleActivities.length)}
+                {Math.round(totalContributions / Math.max(activities.length, 1))}
               </p>
             </div>
           </div>
@@ -138,7 +191,7 @@ export default function DashboardPage() {
           <h3 className="text-xl font-bold text-white mb-6">アクティビティ</h3>
 
           <div className="flex items-end justify-between gap-2 mb-6" style={{ height: '200px' }}>
-            {sampleActivities.map((activity) => (
+            {activities.map((activity) => (
               <div
                 key={activity.date}
                 className="flex-1 flex flex-col items-center"
@@ -164,15 +217,15 @@ export default function DashboardPage() {
           <h3 className="text-xl font-bold text-white mb-6">最近のアクティビティ</h3>
 
           <div className="space-y-4">
-            {['Repository 1', 'Repository 2', 'Repository 3'].map((repo, idx) => (
+            {repositories.map((repo) => (
               <div
-                key={idx}
+                key={repo.name}
                 className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg border border-slate-600 hover:border-slate-500 transition"
               >
                 <div>
-                  <p className="text-white font-semibold">{repo}</p>
+                  <p className="text-white font-semibold">{repo.name}</p>
                   <p className="text-slate-400 text-sm">
-                    {sampleActivities[idx]?.count || 0} commits
+                    {repo.commits} commits
                   </p>
                 </div>
                 <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full border border-blue-400/30">

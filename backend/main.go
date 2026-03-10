@@ -43,6 +43,7 @@ func main() {
 	}
 
 	authHandler := &handlers.AuthHandler{DB: conn}
+	activityHandler := &handlers.ActivityHandler{}
 
 	router := gin.Default()
 	_ = router.SetTrustedProxies([]string{"127.0.0.1"})
@@ -68,6 +69,7 @@ func main() {
 
 		activities := api.Group("/activities")
 		{
+			activities.GET("/me", activityHandler.GetMyActivities)
 			activities.GET("/:userId", getUserActivities)
 		}
 	}

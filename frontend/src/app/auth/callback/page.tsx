@@ -36,8 +36,17 @@ export default function CallbackPage() {
         }
 
         const data = await response.json();
+        const apiUser = data.user ?? {};
+        const normalizedUser = {
+          id: apiUser.id ?? apiUser.ID ?? '',
+          username: apiUser.username ?? apiUser.Username ?? '',
+          email: apiUser.email ?? apiUser.Email ?? '',
+          avatar_url: apiUser.avatar_url ?? apiUser.AvatarURL ?? '',
+          bio: apiUser.bio ?? apiUser.Bio ?? '',
+        };
+
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
 
         router.replace('/dashboard');
       } catch (err) {
