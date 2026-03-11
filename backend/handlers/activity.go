@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +17,31 @@ import (
 	"github.com/Takas-sea/DevMetrics-Hub/utils"
 )
 
-type ActivityHandler struct{}
+type ActivityHandler struct {
+	cacheMu sync.RWMutex
+	cache   map[string]cacheEntry
+	ttl     time.Duration
+}
+
+type cacheEntry struct {
+	value     *activityResponse
+	expiresAt time.Time
+}
+
+func NewActivityHandler() *ActivityHandler {
+	cacheTTL := 5 * time.Minute
+	if raw := strings.TrimSpace(os.Getenv("ACTIVITY_CACHE_TTL_SECONDS")); raw != "" {
+		seconds, err := strconv.Atoi(raw)
+		if err == nil && seconds >= 0 {
+			cacheTTL = time.Duration(seconds) * time.Second
+		}
+	}
+
+	return &ActivityHandler{
+		cache: make(map[string]cacheEntry),
+		ttl:   cacheTTL,
+	}
+}
 
 type githubEvent struct {
 	Type      string `json:"type"`
@@ -72,13 +98,61 @@ func (h *ActivityHandler) GetMyActivities(c *gin.Context) {
 		days = parsed
 	}
 
+	cacheKey := fmt.Sprintf("%s:%d", strings.ToLower(strings.TrimSpace(claims.Username)), days)
+	if cached, ok := h.getCachedActivity(cacheKey); ok {
+		c.Header("X-Activity-Cache", "HIT")
+		c.JSON(http.StatusOK, cached)
+		return
+	}
+
 	res, err := h.fetchRecentActivities(claims.Username, days)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
+	h.setCachedActivity(cacheKey, res)
+	c.Header("X-Activity-Cache", "MISS")
+
 	c.JSON(http.StatusOK, res)
+}
+
+func (h *ActivityHandler) getCachedActivity(key string) (*activityResponse, bool) {
+	if h == nil || h.ttl <= 0 {
+		return nil, false
+	}
+
+	h.cacheMu.RLock()
+	entry, ok := h.cache[key]
+	h.cacheMu.RUnlock()
+	if !ok {
+		return nil, false
+	}
+
+	if time.Now().After(entry.expiresAt) {
+		h.cacheMu.Lock()
+		delete(h.cache, key)
+		h.cacheMu.Unlock()
+		return nil, false
+	}
+
+	return entry.value, true
+}
+
+func (h *ActivityHandler) setCachedActivity(key string, value *activityResponse) {
+	if h == nil || h.ttl <= 0 {
+		return
+	}
+
+	h.cacheMu.Lock()
+	if h.cache == nil {
+		h.cache = make(map[string]cacheEntry)
+	}
+	h.cache[key] = cacheEntry{
+		value:     value,
+		expiresAt: time.Now().Add(h.ttl),
+	}
+	h.cacheMu.Unlock()
 }
 
 func extractBearerToken(header string) (string, error) {
