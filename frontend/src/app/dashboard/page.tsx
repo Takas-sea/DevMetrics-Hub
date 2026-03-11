@@ -129,6 +129,7 @@ export default function DashboardPage() {
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const totalContributions = activities.reduce((sum, a) => sum + a.count, 0);
+  const averageDaily = (totalContributions / Math.max(activities.length, 1)).toFixed(1);
   const maxActivity = Math.max(...activities.map((a) => a.count), 1);
 
   return (
@@ -179,9 +180,7 @@ export default function DashboardPage() {
             </div>
             <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-6">
               <p className="text-slate-400 text-sm mb-2">過去5日の平均</p>
-              <p className="text-4xl font-bold text-purple-400">
-                {Math.round(totalContributions / Math.max(activities.length, 1))}
-              </p>
+              <p className="text-4xl font-bold text-purple-400">{averageDaily}</p>
             </div>
           </div>
         </div>
