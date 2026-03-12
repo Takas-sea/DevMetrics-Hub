@@ -43,7 +43,7 @@ func main() {
 	}
 
 	authHandler := &handlers.AuthHandler{DB: conn}
-	activityHandler := handlers.NewActivityHandler()
+	activityHandler := handlers.NewActivityHandler(conn)
 
 	router := gin.Default()
 	_ = router.SetTrustedProxies([]string{"127.0.0.1"})

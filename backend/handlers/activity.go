@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Takas-sea/DevMetrics-Hub/db"
 	"github.com/Takas-sea/DevMetrics-Hub/utils"
 )
 
@@ -21,6 +23,7 @@ type ActivityHandler struct {
 	cacheMu sync.RWMutex
 	cache   map[string]cacheEntry
 	ttl     time.Duration
+	db      *sql.DB
 }
 
 type cacheEntry struct {
@@ -28,7 +31,7 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
-func NewActivityHandler() *ActivityHandler {
+func NewActivityHandler(dbConn *sql.DB) *ActivityHandler {
 	cacheTTL := 5 * time.Minute
 	if raw := strings.TrimSpace(os.Getenv("ACTIVITY_CACHE_TTL_SECONDS")); raw != "" {
 		seconds, err := strconv.Atoi(raw)
@@ -40,6 +43,7 @@ func NewActivityHandler() *ActivityHandler {
 	return &ActivityHandler{
 		cache: make(map[string]cacheEntry),
 		ttl:   cacheTTL,
+		db:    dbConn,
 	}
 }
 
@@ -107,10 +111,17 @@ func (h *ActivityHandler) GetMyActivities(c *gin.Context) {
 
 	res, err := h.fetchRecentActivities(claims.Username, days)
 	if err != nil {
+		fallback := h.getFallbackActivities(claims.UserID, days)
+		if fallback != nil {
+			c.Header("X-Activity-Source", "DB-FALLBACK")
+			c.JSON(http.StatusOK, fallback)
+			return
+		}
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
+	h.persistActivities(claims.UserID, claims.Username, res)
 	h.setCachedActivity(cacheKey, res)
 	c.Header("X-Activity-Cache", "MISS")
 
@@ -274,4 +285,93 @@ func (h *ActivityHandler) fetchRecentActivities(username string, days int) (*act
 		},
 		RecentRepositories: repos,
 	}, nil
+}
+
+func (h *ActivityHandler) persistActivities(userID, username string, res *activityResponse) {
+	if h == nil || h.db == nil {
+		return
+	}
+
+	records := make([]db.ActivityRecord, 0, len(res.Daily))
+	for _, daily := range res.Daily {
+		date, err := time.Parse("2006-01-02", daily.Date)
+		if err != nil {
+			continue
+		}
+		records = append(records, db.ActivityRecord{
+			UserID:       userID,
+			ActivityType: "push",
+			Repository:   "",
+			ActivityDate: date,
+			CommitCount:  daily.Count,
+		})
+	}
+
+	for _, repo := range res.RecentRepositories {
+		records = append(records, db.ActivityRecord{
+			UserID:       userID,
+			ActivityType: "push",
+			Repository:   repo.Name,
+			ActivityDate: time.Now(),
+			CommitCount:  repo.Commits,
+		})
+	}
+
+	if err := db.SaveActivities(h.db, userID, records); err != nil {
+		_ = fmt.Errorf("failed to save activities: %w", err)
+	}
+}
+
+func (h *ActivityHandler) getFallbackActivities(userID string, days int) *activityResponse {
+	if h == nil || h.db == nil {
+		return nil
+	}
+
+	endDate := time.Now().UTC()
+	startDate := endDate.AddDate(0, 0, -days)
+
+	records, err := db.GetActivitiesByDateRange(h.db, userID, startDate, endDate)
+	if err != nil || len(records) == 0 {
+		return nil
+	}
+
+	dailyCounts := db.AggregateActivitiesByDate(records)
+	repoCounts := db.AggregateActivitiesByRepository(records)
+
+	daily := make([]dailyActivityPoint, 0, days)
+	totalContributions := 0
+	for i := 0; i < days; i++ {
+		dateKey := startDate.AddDate(0, 0, i).Format("2006-01-02")
+		count := dailyCounts[dateKey]
+		totalContributions += count
+		daily = append(daily, dailyActivityPoint{Date: dateKey, Count: count})
+	}
+
+	repos := make([]repositoryActivity, 0, len(repoCounts))
+	for name, commits := range repoCounts {
+		repos = append(repos, repositoryActivity{Name: name, Commits: commits})
+	}
+	sort.Slice(repos, func(i, j int) bool {
+		if repos[i].Commits == repos[j].Commits {
+			return repos[i].Name < repos[j].Name
+		}
+		return repos[i].Commits > repos[j].Commits
+	})
+	if len(repos) > 3 {
+		repos = repos[:3]
+	}
+
+	average := 0
+	if days > 0 {
+		average = (totalContributions + days/2) / days
+	}
+
+	return &activityResponse{
+		Daily: daily,
+		Summary: activitySummary{
+			TotalContributions: totalContributions,
+			AverageDaily:       average,
+		},
+		RecentRepositories: repos,
+	}
 }
