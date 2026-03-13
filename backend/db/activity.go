@@ -9,11 +9,11 @@ import (
 )
 
 type ActivityRecord struct {
-	UserID          string
-	ActivityType    string
-	Repository      string
-	ActivityDate    time.Time
-	CommitCount     int
+	UserID       string
+	ActivityType string
+	Repository   string
+	ActivityDate time.Time
+	CommitCount  int
 }
 
 func SaveActivities(conn *sql.DB, userID string, activities []ActivityRecord) error {
