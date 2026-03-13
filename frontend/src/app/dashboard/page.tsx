@@ -31,13 +31,30 @@ interface ActivityApiResponse {
   recent_repositories: RepoActivity[];
 }
 
-const fallbackActivities: Activity[] = [
-  { date: '2024-03-04', count: 15 },
-  { date: '2024-03-03', count: 8 },
-  { date: '2024-03-02', count: 12 },
-  { date: '2024-03-01', count: 6 },
-  { date: '2024-02-28', count: 20 },
-];
+const periodOptions = [5, 7, 30] as const;
+
+function formatDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function createFallbackActivities(days: number): Activity[] {
+  const today = new Date();
+  const result: Activity[] = [];
+
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    result.push({
+      date: formatDateKey(date),
+      count: 0,
+    });
+  }
+
+  return result;
+}
 
 const fallbackRepositories: RepoActivity[] = [
   { name: 'Repository 1', commits: 15 },
@@ -47,8 +64,9 @@ const fallbackRepositories: RepoActivity[] = [
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [selectedDays, setSelectedDays] = useState<number>(5);
   const [user, setUser] = useState<User | null>(null);
-  const [activities, setActivities] = useState<Activity[]>(fallbackActivities);
+  const [activities, setActivities] = useState<Activity[]>(createFallbackActivities(5));
   const [repositories, setRepositories] = useState<RepoActivity[]>(fallbackRepositories);
   const [loading, setLoading] = useState(true);
 
@@ -72,7 +90,10 @@ export default function DashboardPage() {
       };
       setUser(normalizedUser);
 
-      fetch('http://localhost:8080/api/activities/me?days=5', {
+      setActivities(createFallbackActivities(selectedDays));
+      setRepositories(fallbackRepositories);
+
+      fetch(`http://localhost:8080/api/activities/me?days=${selectedDays}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -100,7 +121,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, selectedDays]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -173,21 +194,40 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="md:col-span-2 grid grid-cols-2 gap-4">
-            <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg p-6">
-              <p className="text-slate-400 text-sm mb-2">今週の貢献</p>
-              <p className="text-4xl font-bold text-blue-400">{totalContributions}</p>
+          <div className="md:col-span-2 space-y-4">
+            <div className="flex justify-end">
+              <label className="text-slate-400 text-sm flex items-center gap-2">
+                期間
+                <select
+                  value={selectedDays}
+                  onChange={(event) => setSelectedDays(Number(event.target.value))}
+                  className="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1"
+                >
+                  {periodOptions.map((days) => (
+                    <option key={days} value={days}>
+                      {days}日
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-6">
-              <p className="text-slate-400 text-sm mb-2">過去5日の平均</p>
-              <p className="text-4xl font-bold text-purple-400">{averageDaily}</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg p-6">
+                <p className="text-slate-400 text-sm mb-2">過去{selectedDays}日の貢献</p>
+                <p className="text-4xl font-bold text-blue-400">{totalContributions}</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-6">
+                <p className="text-slate-400 text-sm mb-2">過去{selectedDays}日の平均</p>
+                <p className="text-4xl font-bold text-purple-400">{averageDaily}</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Activity Chart */}
         <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-6 mb-8">
-          <h3 className="text-xl font-bold text-white mb-6">アクティビティ</h3>
+          <h3 className="text-xl font-bold text-white mb-6">アクティビティ（過去{selectedDays}日）</h3>
 
           <div className="flex items-end justify-between gap-2 mb-6" style={{ height: '200px' }}>
             {activities.map((activity) => (
